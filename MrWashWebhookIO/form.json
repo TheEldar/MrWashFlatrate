@@ -1,0 +1,54 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "label": "Dieses I/O registriert einen eindeutigen WebHook pro Instanz (/hook/MrWash/<InstanceID>) und leitet Geofency-Events an den Splitter weiter."
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "Token",
+            "caption": "Token (Secret)",
+            "width": "520px"
+        },
+        {
+            "type": "ValidationTextBox",
+            "caption": "Webhook URL",
+            "enabled": true,
+            "width": "520px",
+            "multiline": true
+        },
+        {
+            "type": "ValidationTextBox",
+            "caption": "Export URL JSON",
+            "enabled": true,
+            "width": "520px",
+            "multiline": true
+        },
+        {
+            "type": "ValidationTextBox",
+            "caption": "Export URL CSV",
+            "enabled": true,
+            "width": "520px",
+            "multiline": true
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "AllowedDevice",
+            "caption": "Optional: device Filter (leer = alle)",
+            "width": "520px"
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableDebug",
+            "caption": "Debug-Ausgaben aktivieren (SendDebug)",
+            "width": "520px"
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Token neu erzeugen",
+            "onClick": "MRWASHIO_RegenerateToken($id);"
+        }
+    ]
+}

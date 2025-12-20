@@ -1,0 +1,18 @@
+{
+    "id": "{A2D316A2-E403-4B88-A223-E2E60C6AE1FA}",
+    "name": "MrWashFlatrate",
+    "type": 3,
+    "vendor": "Mr. Wash",
+    "aliases": [
+        "Mr Wash Flatrate"
+    ],
+    "url": "",
+    "parentRequirements": [
+        "{927CEF32-FF05-4518-95CD-1F5709CF7FA2}"
+    ],
+    "childRequirements": [],
+    "implemented": [
+        "{927CEF32-FF05-4518-95CD-1F5709CF7FA2}"
+    ],
+    "prefix": "MRWASH"
+}

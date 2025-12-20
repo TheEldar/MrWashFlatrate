@@ -1,0 +1,301 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "label": "Hinweis: Der Webhook wird über die Parent-I/O Instanz (MrWashWebhookIO) bereitgestellt. Dort findest du Token & URL zum Kopieren."
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableDebug",
+            "caption": "Debug aktivieren"
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Abo & Preise",
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "Plan",
+                    "caption": "Abo-Typ",
+                    "options": [
+                        {
+                            "caption": "Nur Außenwäsche",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Außen + Innenraum",
+                            "value": 1
+                        }
+                    ]
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "SinglePriceExterior",
+                    "caption": "Einzelpreis Außenwäsche (€)",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "SinglePriceInterior",
+                    "caption": "Einzelpreis Außen + Innenraum (€)",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "SelectDate",
+                    "name": "StartDate",
+                    "caption": "Startdatum (Vertragsbeginn)"
+                },
+                {
+                    "type": "Select",
+                    "name": "BillingCycle",
+                    "caption": "Laufzeit/Abrechnung",
+                    "options": [
+                        {
+                            "caption": "Monatlich",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Jährlich",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Benutzerdefiniert (Tage)",
+                            "value": 2
+                        },
+                        {
+                            "caption": "FLATWASH 3 Monate (93 Tage)",
+                            "value": 3
+                        },
+                        {
+                            "caption": "FLATWASH 12 Monate (372 Tage)",
+                            "value": 4
+                        }
+                    ]
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "BillingCycleDays",
+                    "caption": "Zykluslänge (Tage) – nur bei 'Benutzerdefiniert'",
+                    "minimum": 1
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "SubscriptionPrice",
+                    "caption": "Abo-Preis (aktueller Laufzeittyp) (€)",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "SubscriptionPrice3M",
+                    "caption": "Abo-Preis 3 Monate (optional) (€)",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "SubscriptionPrice12M",
+                    "caption": "Abo-Preis 12 Monate (optional) (€)",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "Select",
+                    "name": "BreakEvenAssumption",
+                    "caption": "Annahme für 'noch nötige Wäschen'",
+                    "options": [
+                        {
+                            "caption": "Wie im Abo",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Durchschnitt bisher (aktueller Zeitraum)",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Worst Case (immer Außen)",
+                            "value": 2
+                        },
+                        {
+                            "caption": "Best Case (immer Innen)",
+                            "value": 3
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Verlängerungen",
+            "items": [
+                {
+                    "type": "CheckBox",
+                    "name": "RenewalBonusEnabled",
+                    "caption": "Bonus bei rechtzeitiger Verlängerung berücksichtigen"
+                },
+                {
+                    "type": "List",
+                    "name": "Renewals",
+                    "caption": "Verlängerungen (manuell)",
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Datum",
+                            "name": "Date",
+                            "width": "180px",
+                            "add": {
+                                "year": 2025,
+                                "month": 1,
+                                "day": 1
+                            }
+                        },
+                        {
+                            "caption": "Laufzeit",
+                            "name": "Term",
+                            "width": "230px",
+                            "add": 0
+                        },
+                        {
+                            "caption": "Preis (€)",
+                            "name": "Price",
+                            "width": "120px",
+                            "add": 0
+                        },
+                        {
+                            "caption": "Bonus",
+                            "name": "Bonus",
+                            "width": "80px",
+                            "add": false
+                        }
+                    ],
+                    "rowLayout": [
+                        {
+                            "type": "SelectDate",
+                            "name": "Date",
+                            "caption": "Datum"
+                        },
+                        {
+                            "type": "Select",
+                            "name": "Term",
+                            "caption": "Laufzeit",
+                            "options": [
+                                {
+                                    "caption": "Monatlich",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "Jährlich",
+                                    "value": 1
+                                },
+                                {
+                                    "caption": "Benutzerdefiniert (Tage)",
+                                    "value": 2
+                                },
+                                {
+                                    "caption": "FLATWASH 3 Monate (93 Tage)",
+                                    "value": 3
+                                },
+                                {
+                                    "caption": "FLATWASH 12 Monate (372 Tage)",
+                                    "value": 4
+                                }
+                            ]
+                        },
+                        {
+                            "type": "NumberSpinner",
+                            "name": "Price",
+                            "caption": "Preis (€)",
+                            "digits": 2,
+                            "minimum": 0
+                        },
+                        {
+                            "type": "CheckBox",
+                            "name": "Bonus",
+                            "caption": "Bonus"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Erkennung",
+            "items": [
+                {
+                    "type": "NumberSpinner",
+                    "name": "InteriorThresholdMinutes",
+                    "caption": "Schwellwert Innenraum (Minuten). >= bedeutet 'Innenraum genutzt'",
+                    "minimum": 1
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "SingleEventMode",
+                    "caption": "Nur ein Event zählt als Außenwäsche (keine Innenraum-Erkennung)"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "HistoryMax",
+                    "caption": "Max. Anzahl gespeicherter Besuche",
+                    "minimum": 10
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Fair Use / Nutzungsbedingungen",
+            "items": [
+                {
+                    "type": "CheckBox",
+                    "name": "EnableFairUseWarnings",
+                    "caption": "Warnungen aktivieren"
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FairUseMaxPerWeek",
+                    "caption": "Warnung ab Ø Besuche/Woche >",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FairUseMinAvgIntervalDays",
+                    "caption": "Warnung wenn Ø Intervall (Tage) <",
+                    "digits": 2,
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FairUseMaxUses3M",
+                    "caption": "Warnung ab Nutzungen im 3M-Zeitraum >",
+                    "minimum": 0
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FairUseMaxUses12M",
+                    "caption": "Warnung ab Nutzungen im 12M-Zeitraum >",
+                    "minimum": 0
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Jetzt neu berechnen",
+            "onClick": "MRWASH_UpdateMetrics($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Historie löschen",
+            "onClick": "MRWASH_ClearHistory($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Offene Einfahrten zurücksetzen",
+            "onClick": "MRWASH_ClearOpenEntries($id);"
+        }
+    ]
+}

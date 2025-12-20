@@ -1,0 +1,18 @@
+{
+    "id": "{79BC040B-295B-40BD-982E-82238FDB2B10}",
+    "name": "MrWashWebhookIO",
+    "type": 1,
+    "vendor": "Mr. Wash",
+    "aliases": [
+        "MrWash Webhook IO"
+    ],
+    "url": "",
+    "parentRequirements": [],
+    "childRequirements": [
+        "{F4B171C0-030A-4B6A-9415-8BBF6949380D}"
+    ],
+    "implemented": [
+        "{F4B171C0-030A-4B6A-9415-8BBF6949380D}"
+    ],
+    "prefix": "MRWASHIO"
+}

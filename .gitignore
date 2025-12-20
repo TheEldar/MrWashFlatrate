@@ -10,6 +10,11 @@
 *.userosscache
 *.sln.docstates
 *.env
+.DS_Store
+.idea/
+.php_cs.cache
+.phpunit.result.cache
+.vscode
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

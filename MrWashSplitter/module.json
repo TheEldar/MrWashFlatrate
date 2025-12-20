@@ -1,0 +1,21 @@
+{
+    "id": "{B007E66F-485C-4BCE-ACBF-256CAF2A3BED}",
+    "name": "MrWashSplitter",
+    "type": 2,
+    "vendor": "Mr. Wash",
+    "aliases": [
+        "MrWash Splitter"
+    ],
+    "url": "",
+    "parentRequirements": [
+        "{F4B171C0-030A-4B6A-9415-8BBF6949380D}"
+    ],
+    "childRequirements": [
+        "{927CEF32-FF05-4518-95CD-1F5709CF7FA2}"
+    ],
+    "implemented": [
+        "{927CEF32-FF05-4518-95CD-1F5709CF7FA2}",
+        "{F4B171C0-030A-4B6A-9415-8BBF6949380D}"
+    ],
+    "prefix": "MRWASHSPLIT"
+}

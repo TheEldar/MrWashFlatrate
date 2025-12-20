@@ -1,0 +1,15 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "label": "Splitter: leitet Webhook-Events an angeschlossene MrWashFlatrate-Instanzen weiter."
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableDebug",
+            "caption": "Debug-Ausgaben aktivieren (SendDebug)",
+            "width": "520px"
+        }
+    ],
+    "actions": []
+}
