@@ -120,13 +120,14 @@ Standard Aufbau der Geofency JSON:
 
 
 
-Alle Apps, die die Felder
+Alle Apps, die folgende Felder übertragen
 - entry
 - date
 - name
 - device
 
-Übertragen sind aktuell zur I/O-Instanz kompatibel. 
+sind aktuell zur I/O-Instanz kompatibel. Weitere Geofenc APPs können ergänzt werden. Gerne einen Push Request erstellen.
+
 ---
 
 ## Webhook Payload (Beispiele)
