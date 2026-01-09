@@ -1,5 +1,5 @@
 [![Version](https://img.shields.io/badge/Symcon-PHPModul-red.svg)](https://www.symcon.de/service/dokumentation/entwicklerbereich/sdk-tools/sdk-php/)
-[![Version](https://img.shields.io/badge/Modul%20Version-1.30-blue.svg)]()
+[![Version](https://img.shields.io/badge/Modul%20Version-1.40-blue.svg)]()
 [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-green.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)  
 [![Version](https://img.shields.io/badge/Symcon%20Version-8.1%20%3E-green.svg)](https://community.symcon.de/t/ip-symcon-8-1-stable-changelog/40276)
 
@@ -214,12 +214,13 @@ Typische Prüfkette:
 
 ## Lizenz
 
-  IPS-Modul:  
-  [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)  
+  IPS-Modul: [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)  
 
 ---
 
-## Credits / Spenden / Hinweise
+## Anhang
+
+### Credits / Spenden / Hinweise
 
 Dieses Projekt ist ein Community-Modul und steht in keiner offiziellen Verbindung zu Mr. Wash.
 
@@ -227,4 +228,28 @@ Die Library ist für die nicht kommerzielle Nutzung kostenlos. Kleine Dankeschö
 
 <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=MBVXFVK8WED4C" target="_blank"><img src="https://www.paypalobjects.com/de_DE/DE/i/btn/btn_donate_LG.gif" border="0" /></a>
 
-![Spende](docs/images/QR-Code.png) 
+![Spende](docs/images/QR-Code.png)
+
+---
+### Changelog
+
+#### v1.4 Build 2
+
+##### Changed
+- **Export-Funktion (`action=export`) auf Datenfluss umgestellt**: Export läuft jetzt korrekt über IO → Splitter → Device → Splitter → IO (Request/Response), ohne Objektbaum-Scan.
+- **Mehrdeutigkeitsbehandlung verbessert**: Bei mehreren Devices wird ohne `target` ein Hinweis ausgegeben, mit `target=<InstanceID>` wird gezielt das passende Device abgefragt.
+- **CSV/JSON Export weiterhin verfügbar**, jetzt aber aus der Device-Quelle (Visit-History) über den Datenfluss.
+
+##### Removed
+- **IO: `ResolveSingleDevice()` entfernt**, da es den Datenfluss umgangen hat (kein Traversieren von `ConnectionID`/Instanzlisten mehr).
+- **Direkter Device-Aufruf im IO für Export entfernt** (kein `MRWASH_GetVisits($deviceId, ...)` mehr; Export-Antwort kommt vom Device).
+
+##### Added
+- **IO: `ForwardData()` ergänzt**, um `export_response` Nachrichten zu empfangen und während des HTTP-Requests als Export-Ergebnis zu sammeln.
+- **Splitter: `ForwardData()` erweitert**, um Device-Antworten (ExportResponse) an die IO weiterzureichen.
+- **Device: Export-Request Handling in `ReceiveData()` ergänzt**, inkl. `preferred`-Filter (antwortet nur, wenn `preferred==0` oder `preferred==InstanceID`).
+
+##### Notes
+- Interfaces/DataIDs wurden entsprechend der bestehenden `module.json` genutzt:
+  - IO ↔ Splitter: `{F4B171C0-030A-4B6A-9415-8BBF6949380D}`
+  - Splitter ↔ Device: `{927CEF32-FF05-4518-95CD-1F5709CF7FA2}`

@@ -3,6 +3,7 @@
 class MrWashSplitter extends IPSModule
 {
     private const IFACE_TO_DEVICE = '{927CEF32-FF05-4518-95CD-1F5709CF7FA2}';
+    private const IFACE_TO_IO = '{F4B171C0-030A-4B6A-9415-8BBF6949380D}';
 
     public function Create()
     {
@@ -12,9 +13,15 @@ class MrWashSplitter extends IPSModule
 
     public function ApplyChanges()
     {
-        $this->EnsurePropertyDefinitions();
         parent::ApplyChanges();
-        $this->AutoConnectParent();
+
+        $parentID = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
+        if ($parentID === 0) {
+            $this->SetStatus(201);  // kein IO verbunden
+            return;
+        }
+
+        $this->SetStatus(102);
     }
 
     public function ReceiveData($JSONString)
@@ -51,23 +58,26 @@ class MrWashSplitter extends IPSModule
     {
         $data = json_decode($JSONString);
         $this->Dbg('TX', 'From child len=' . strlen((string)$JSONString));
+
         if (!is_object($data) || !property_exists($data, 'Buffer')) {
             return '';
         }
 
-        // Optional: forward data from device to parent (not needed for MrWash, keep as debug)
-        // $this->SendDataToParent(json_encode(['DataID' => self::IFACE_FROM_PARENT, 'Buffer' => (string)$data->Buffer]));
+        // Hier wird alles vom Device 1:1 nach oben an die IO weitergereicht
+        $this->Dbg('ForwardUp', 'To parent DataID ' . self::IFACE_TO_IO);
+
+        $this->SendDataToParent(json_encode([
+            'DataID' => self::IFACE_TO_IO,
+            'Buffer' => (string)$data->Buffer
+        ]));
+
         return 'OK';
     }
 
 
     private function IsDebugEnabled(): bool
     {
-        $cfg = json_decode((string)@IPS_GetConfiguration($this->InstanceID), true);
-        if (!is_array($cfg) || !array_key_exists('EnableDebug', $cfg)) {
-            return true; // default
-        }
-        return (bool)$cfg['EnableDebug'];
+        return $this->ReadPropertyBoolean('EnableDebug');
     }
 
     private function Dbg(string $topic, $data): void
@@ -81,40 +91,6 @@ class MrWashSplitter extends IPSModule
         $this->SendDebug($topic, (string)$data, 0);
     }
 
-    private function AutoConnectParent(): void
-    {
-        $inst = IPS_GetInstance($this->InstanceID);
-        $currentParent = (int)($inst['ConnectionID'] ?? 0);
-        if ($currentParent > 0) {
-            return;
-        }
-
-        $ioModuleID = '{79BC040B-295B-40BD-982E-82238FDB2B10}'; // <- MrWashWebhookIO Module GUID
-        $ios = IPS_GetInstanceListByModuleID($ioModuleID);
-
-        if (count($ios) > 0) {
-            IPS_ConnectInstance($this->InstanceID, $ios[0]);
-            return;
-        }
-
-        $ioID = IPS_CreateInstance($ioModuleID);
-
-        $parentObj = IPS_GetParent($this->InstanceID);
-        if ($parentObj > 0) {
-            IPS_SetParent($ioID, $parentObj);
-        }
-
-        IPS_ApplyChanges($ioID);
-        IPS_ConnectInstance($this->InstanceID, $ioID);
-    }
-
-    private function EnsurePropertyDefinitions(): void
-    {
-        // Nur fehlende Properties nachziehen (verhindert "already registered")
-        if (@IPS_GetProperty($this->InstanceID, 'EnableDebug') === false) {
-            $this->RegisterPropertyBoolean('EnableDebug', true);
-        }
-    }
     private function CountConnectedChildren(): int
     {
         $children = IPS_GetInstanceListByModuleID('{A2D316A2-E403-4B88-A223-E2E60C6AE1FA}');

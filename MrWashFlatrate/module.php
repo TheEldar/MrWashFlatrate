@@ -2,6 +2,8 @@
 
 class MrWashFlatrate extends IPSModule
 {
+    private const IFACE_TO_SPLITTER = '{927CEF32-FF05-4518-95CD-1F5709CF7FA2}';
+
     private const PROFILE_PROGRAM = 'MRWASH.Program';
     private const SEMAPHORE = 'MRWASH_';
 
@@ -40,7 +42,7 @@ class MrWashFlatrate extends IPSModule
         $this->RegisterPropertyString('Renewals', json_encode([]));
 
         $this->RegisterPropertyInteger('InteriorThresholdMinutes', 15);
-$this->RegisterPropertyInteger('HistoryMax', 200);
+        $this->RegisterPropertyInteger('HistoryMax', 200);
         $this->RegisterPropertyBoolean('SingleEventMode', false);
 
         $this->RegisterPropertyBoolean('EnableFairUseWarnings', true);
@@ -84,7 +86,7 @@ $this->RegisterPropertyInteger('HistoryMax', 200);
         $this->RegisterVariableString('HistoryJSON', 'History (JSON)', '', 105);
         $this->EnableAction('HistoryJSON');
 
-$this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
+        $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
         $this->RegisterVariableInteger('VisitsExteriorTotal', 'Außenwäschen (seit Start)', '', 111);
         $this->RegisterVariableInteger('VisitsInteriorTotal', 'Innenraum (seit Start)', '', 112);
 
@@ -100,48 +102,25 @@ $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
 
     public function ApplyChanges()
     {
-        $this->EnsurePropertyDefinitions();
         parent::ApplyChanges();
-        $this->AutoConnectParent();
+
+        // Punkt 1: Kein AutoConnect – stattdessen Status/Hint
+        $parentID = (int)(IPS_GetInstance($this->InstanceID)['ConnectionID'] ?? 0);
+        if ($parentID === 0) {
+            // Kein Gateway gewählt → Feedback geben.
+            $this->SetStatus(201); // "Konfiguration unvollständig" / "kein Parent"
+            $this->SetTimerInterval('UpdateMetrics', 0);
+            return;
+        }
+
+        $this->SetStatus(102); // aktiv
+
         $this->MaintainProgramProfile();
-        $this->EnableArchiveForHistory();
         $this->SeedHistoryIfEmpty();
 
         $this->SetTimerInterval('UpdateMetrics', 60 * 60 * 1000);
         $this->UpdateMetrics();
     }
-
-    private function AutoConnectParent(): void
-    {
-        // Wenn schon manuell ein Gateway gesetzt ist: nichts anfassen
-        $inst = IPS_GetInstance($this->InstanceID);
-        $currentParent = (int)($inst['ConnectionID'] ?? 0);
-        if ($currentParent > 0) {
-            return;
-        }
-
-        // 1) Splitter suchen (bestehenden nutzen)
-        $splitterModuleID = '{B007E66F-485C-4BCE-ACBF-256CAF2A3BED}'; // <- MrWashSplitter Module GUID
-        $splitters = IPS_GetInstanceListByModuleID($splitterModuleID);
-
-        if (count($splitters) > 0) {
-            IPS_ConnectInstance($this->InstanceID, $splitters[0]);
-            return;
-        }
-
-        // 2) Splitter nicht vorhanden -> anlegen
-        $splitterID = IPS_CreateInstance($splitterModuleID);
-
-        // Optional: in den gleichen Bereich im Objektbaum hängen wie das Device
-        $parentObj = IPS_GetParent($this->InstanceID);
-        if ($parentObj > 0) {
-            IPS_SetParent($splitterID, $parentObj);
-        }
-
-        IPS_ApplyChanges($splitterID);
-        IPS_ConnectInstance($this->InstanceID, $splitterID);
-    }
-
 
     public function GetConfigurationForm(): string
     {
@@ -162,6 +141,41 @@ $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
         }
 
         $payload = json_decode((string)$data->Buffer, true);
+
+        // --- Export request handling (dataflow) ---
+        if (isset($payload['cmd']) && $payload['cmd'] === 'export_request') {
+            $preferred = (int)($payload['preferred'] ?? 0);
+            if ($preferred > 0 && $preferred !== $this->InstanceID) {
+                // nicht zuständig
+                return 'IGNORED';
+            }
+
+            $requestId = (string)($payload['requestId'] ?? '');
+            $limit = (int)($payload['limit'] ?? 0);
+
+            $visitsJson = $this->GetVisits($limit);
+            $visits = json_decode($visitsJson, true);
+            if (!is_array($visits)) {
+                $visits = [];
+            }
+
+            $resp = [
+                'cmd'       => 'export_response',
+                'requestId' => $requestId,
+                'deviceId'  => $this->InstanceID,
+                'visits'    => $visits
+            ];
+
+            $this->Dbg('Export', 'Responding requestId=' . $requestId . ' visits=' . count($visits));
+
+            $this->SendDataToParent(json_encode([
+                'DataID' => self::IFACE_TO_SPLITTER,
+                'Buffer' => json_encode($resp, JSON_UNESCAPED_UNICODE)
+            ]));
+
+            return 'OK';
+        }
+
         if (!is_array($payload)) {
             parse_str((string)$data->Buffer, $parsed);
             if (is_array($parsed) && !empty($parsed)) {
@@ -171,9 +185,7 @@ $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
         }
         }
 
-                $this->Dbg('Payload', json_encode($payload, JSON_UNESCAPED_UNICODE));
-
-
+        $this->Dbg('Payload', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
         $entryRaw = $payload['entry'] ?? null;
         $isEntry = $this->ToBool($entryRaw);
@@ -189,9 +201,6 @@ $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
         return "OK";
     }
 
-
-
-    
     public function RequestAction($Ident, $Value)
     {
         switch ($Ident) {
@@ -203,7 +212,7 @@ $this->RegisterVariableInteger('VisitsTotal', 'Wäschen (seit Start)', '', 110);
         }
     }
 
-public function UpdateMetrics(): void
+    public function UpdateMetrics(): void
     {
         $now = time();
 
@@ -302,13 +311,6 @@ public function UpdateMetrics(): void
     public function ClearOpenEntries(): void
     {
         $this->WriteAttributeString('OpenEntries', json_encode(new stdClass()));
-    }
-
-    public function RegenerateToken(): void
-    {
-        $newToken = $this->GenerateToken();
-        IPS_SetProperty($this->InstanceID, 'Token', $newToken);
-        IPS_ApplyChanges($this->InstanceID);
     }
 
     public function GetVisits(int $limit = 0): string
@@ -430,21 +432,32 @@ public function UpdateMetrics(): void
         return $out;
     }
 
-    private function EnableArchiveForHistory(): void
+    public function EnableHistoryArchiveLogging(): void
     {
-        $varID = @$this->GetIDForIdent('HistoryJSON');
+        $varID = (int)@$this->GetIDForIdent('HistoryJSON');
         if ($varID <= 0) {
+            $this->SendDebug('Archive', 'HistoryJSON Variable nicht gefunden', 0);
             return;
         }
-        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}'); // Archive Control
-        if (count($ids) == 0) {
+
+        $archiveID = $this->GetArchiveControlInstanceID();
+        if ($archiveID <= 0) {
+            $this->SendDebug('Archive', 'Archive Control nicht gefunden', 0);
             return;
         }
-        $archiveID = $ids[0];
+
+        // Logging aktivieren
         if (!@AC_GetLoggingStatus($archiveID, $varID)) {
             @AC_SetLoggingStatus($archiveID, $varID, true);
         }
+
+        // Graph aus (Strings sind als Graph meist sinnlos, aber Logging ist gewünscht)
         @AC_SetGraphStatus($archiveID, $varID, false);
+
+        // Optional: direkte Rückmeldung im Formular (wenn du ein entsprechendes Feld einbaust)
+        // $this->UpdateFormField('HistoryArchiveStatus', 'value', 'aktiv');
+
+        $this->SendDebug('Archive', 'HistoryJSON Logging wurde aktiviert (Benutzeraktion)', 0);
     }
 
     private function SeedHistoryIfEmpty(): void
@@ -586,7 +599,7 @@ public function UpdateMetrics(): void
         $this->UpdateMetrics();
     }
 
-private function AppendVisit(array $visit): void
+    private function AppendVisit(array $visit): void
     {
         $visits = $this->LoadVisits();
         $visits[] = $visit;
@@ -605,7 +618,6 @@ private function AppendVisit(array $visit): void
         // Archive variable keeps full history (no retention)
         $this->AppendHistoryVariableFromVisit($visit);
     }
-
 
     private function LoadVisits(): array
     {
@@ -1294,16 +1306,6 @@ private function AppendVisit(array $visit): void
         return $path;
     }
 
-    private function GenerateToken(int $length = 32): string
-    {
-        $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        $token = '';
-        for ($i = 0; $i < $length; $i++) {
-            $token .= $alphabet[random_int(0, strlen($alphabet) - 1)];
-        }
-        return $token;
-    }
-
     private function ReadIncomingPayload(): ?array
     {
         if (!empty($_POST) && is_array($_POST)) {
@@ -1363,11 +1365,7 @@ private function AppendVisit(array $visit): void
 
     private function IsDebugEnabled(): bool
     {
-        $cfg = json_decode((string)@IPS_GetConfiguration($this->InstanceID), true);
-        if (!is_array($cfg) || !array_key_exists('EnableDebug', $cfg)) {
-            return true; // default
-        }
-        return (bool)$cfg['EnableDebug'];
+        return $this->ReadPropertyBoolean('EnableDebug');
     }
 
     private function Dbg(string $topic, $data): void
@@ -1381,43 +1379,11 @@ private function AppendVisit(array $visit): void
         $this->SendDebug($topic, (string)$data, 0);
     }
 
-    private function EnsurePropertyDefinitions(): void
+    // Archive-Control-ID ermitteln
+    private function GetArchiveControlInstanceID(): int
     {
-        // Register missing properties only (avoid "already registered" warnings)
-        if (@IPS_GetProperty($this->InstanceID, 'EnableDebug') === false) {
-        $this->RegisterPropertyBoolean('EnableDebug', true);
-        }
-        if (@IPS_GetProperty($this->InstanceID, 'SinglePriceExterior') === false) {
-            $this->RegisterPropertyFloat('SinglePriceExterior', 0.0);
-        }
-        if (@IPS_GetProperty($this->InstanceID, 'SinglePriceInterior') === false) {
-            $this->RegisterPropertyFloat('SinglePriceInterior', 0.0);
-        }
-        if (@IPS_GetProperty($this->InstanceID, 'InteriorThresholdMinutes') === false) {
-            // Default jetzt 15 Minuten
-            $this->RegisterPropertyInteger('InteriorThresholdMinutes', 15);
-        }
-        if (@IPS_GetProperty($this->InstanceID, 'HistoryMax') === false) {
-            $this->RegisterPropertyInteger('HistoryMax', 200);
-        }
-
-        // Attributes (suppress warnings when missing)
-        $visits = @$this->ReadAttributeString('Visits');
-        if (!is_string($visits) || $visits === '') {
-            $this->RegisterAttributeString('Visits', json_encode([]));
-        }
-
-        $open = @$this->ReadAttributeString('OpenEntries');
-        if (!is_string($open) || $open === '') {
-            $this->RegisterAttributeString('OpenEntries', json_encode(new stdClass()));
-        }
-
-        // Make sure HistoryJSON variable exists (safe to call in ApplyChanges)
-        if (@$this->GetIDForIdent('HistoryJSON') === 0) {
-            $this->RegisterVariableString('HistoryJSON', 'History (JSON)', '', 105);
-            $this->EnableAction('HistoryJSON');
-        }
+        $ids = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}');
+        return (count($ids) > 0) ? (int)$ids[0] : 0;
     }
-
 
 }

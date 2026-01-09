@@ -86,3 +86,41 @@ Format eines Eintrags:
 Wenn im Device nichts ankommt:
 - Splitter Debug prüfen (`Children connected`)
 - Gateway-Verbindung prüfen (Device muss am richtigen Splitter hängen)
+
+## Statusvariablen und Profile
+
+Folgende Statusvariablen werden automatisch angelegt.
+
+Name                               | Ident                       | Typ
+---------------------------------- | --------------------------- | ----------------
+Dashboard                          | Dashboard                   | String (~HTMLBox)
+Wäschen (akt. Zeitraum)            | VisitsThisPeriod            | Integer
+Außenwäschen (akt. Zeitraum)       | VisitsExteriorThisPeriod    | Integer
+Innenraum (akt. Zeitraum)          | VisitsInteriorThisPeriod    | Integer
+Kosten ohne Abo (akt. Zeitraum)    | EquivalentCostThisPeriod    | Float (~Euro)
+Abo-Kosten (akt. Zeitraum)         | SubscriptionCostThisPeriod  | Float (~Euro)
+Ersparnis (akt. Zeitraum)          | SavingsThisPeriod           | Float (~Euro)
+Noch nötige Wäschen bis Break-Even | AdditionalWashesToBreakEven | Integer
+Empf. Intervall (Tage)             | RecommendedIntervalDays     | Float
+Zeitraum Start                     | ContractStart               | Integer (~UnixTimestamp)
+Zeitraum Ende                      | ContractEnd                 | Integer (~UnixTimestamp)
+Letzter Besuch                     | LastVisit                   | Integer (~UnixTimestamp)
+Letztes Programm                   | LastProgram                 | Integer (#MRWASH.Program)
+Letzte Dauer (Min)                 | LastDurationMinutes         | Integer
+Letzte Location                    | LastLocation                | String
+History (JSON)                     | HistoryJSON                 | String
+Wäschen (seit Start)               | VisitsTotal                 | Integer
+Außenwäschen (seit Start)          | VisitsExteriorTotal         | Integer
+Innenraum (seit Start)             | VisitsInteriorTotal         | Integer
+Kosten ohne Abo (seit Start)       | EquivalentCostTotal         | Float (~Euro)
+Abo-Kosten (seit Start)            | SubscriptionCostTotal       | Float (~Euro)
+Ersparnis (seit Start)             | SavingsTotal                | Float (~Euro)
+Ø Intervall (seit Start, Tage)     | AverageIntervalDays         | Float
+Fair Use Warnung                   | FairUseWarning              | Boolean (~Alert)
+Fair Use Hinweis                   | FairUseMessage              | String
+
+Folgende Profile werden automatisch angelegt. 
+
+Name            | Typ
+--------------- | -----------------------------------------------
+#MRWASH.Program | Integer (Auswahlprofil: 0=Außen, 1=Innen+Außen)

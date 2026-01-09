@@ -12,6 +12,7 @@
         },
         {
             "type": "ValidationTextBox",
+            "name": "WebhookURL",
             "caption": "Webhook URL",
             "enabled": true,
             "width": "520px",
@@ -19,6 +20,7 @@
         },
         {
             "type": "ValidationTextBox",
+            "name": "ExportURLJson",
             "caption": "Export URL JSON",
             "enabled": true,
             "width": "520px",
@@ -26,6 +28,7 @@
         },
         {
             "type": "ValidationTextBox",
+            "name": "ExportURLCsv",
             "caption": "Export URL CSV",
             "enabled": true,
             "width": "520px",

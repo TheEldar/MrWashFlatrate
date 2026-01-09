@@ -289,6 +289,11 @@
         },
         {
             "type": "Button",
+            "caption": "Archivierung für HistoryJSON aktivieren.",
+            "onClick": "MRWASH_EnableHistoryArchiveLogging($id);"
+        },
+        {
+            "type": "Button",
             "caption": "Historie löschen",
             "onClick": "MRWASH_ClearHistory($id);"
         },

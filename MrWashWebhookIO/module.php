@@ -21,21 +21,12 @@ class MrWashWebhookIO extends WebHookModule
         $this->RegisterPropertyString('AllowedDevice', '');
     }
 
-    private function EnsurePropertyDefinitions(): void
-    {
-        // Migration helper: suppress warnings if already registered
-        @$this->RegisterPropertyBoolean('EnableDebug', true);
-        @$this->RegisterPropertyString('Token', $this->GenerateToken());
-        @$this->RegisterPropertyString('AllowedDevice', '');
-    }
-
     public function ApplyChanges(): void
     {
-        $this->EnsurePropertyDefinitions();
         parent::ApplyChanges();
     }
 
-public function GetConfigurationForm(): string
+    public function GetConfigurationForm(): string
     {
         $form = json_decode((string)file_get_contents(__DIR__ . '/form.json'), true);
         if (!is_array($form)) {
@@ -64,15 +55,15 @@ public function GetConfigurationForm(): string
                 if (!is_array($el) || ($el['type'] ?? '') !== 'ValidationTextBox') {
                     continue;
                 }
-                $caption = (string)($el['caption'] ?? '');
-                switch ($caption) {
-                    case 'Webhook URL':
+                $name = (string)($el['name'] ?? '');
+                switch ($name) {
+                    case 'WebhookURL':
                         $el['value'] = $url;
                         break;
-                    case 'Export URL JSON':
+                    case 'ExportURLJson':
                         $el['value'] = $urlJson;
                         break;
-                    case 'Export URL CSV':
+                    case 'ExportURLCsv':
                         $el['value'] = $urlCsv;
                         break;
                 }
@@ -85,8 +76,25 @@ public function GetConfigurationForm(): string
 
     public function RegenerateToken(): void
     {
-        IPS_SetProperty($this->InstanceID, 'Token', $this->GenerateToken());
-        IPS_ApplyChanges($this->InstanceID);
+        // Token nur im Formular setzen – Anwender muss "Übernehmen" klicken
+        $newToken = $this->GenerateToken();
+        $this->UpdateFormField('Token', 'value', $newToken);
+
+        // die URL-Felder im Formular direkt aktualisieren
+        $hook = '/hook/MrWash/' . $this->InstanceID;
+
+        $base = '';
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $base = $scheme . '://' . $_SERVER['HTTP_HOST'];
+        }
+
+        $relative = $hook . '?token=' . rawurlencode($newToken);
+        $url      = ($base !== '' ? $base : '') . $relative;
+
+        $this->UpdateFormField('WebhookURL', 'value', $url);
+        $this->UpdateFormField('ExportURLJson', 'value', $url . '&action=export&format=json');
+        $this->UpdateFormField('ExportURLCsv', 'value', $url . '&action=export&format=csv');
     }
 
     // Called by WebHookModule via WebHook Control
@@ -111,50 +119,125 @@ public function GetConfigurationForm(): string
         }
         $this->Dbg('Auth', 'Token OK');
 
-        // --- Export (proxy to the only connected device) ---
+        // --- Export (via dataflow IO -> Splitter -> Device -> Splitter -> IO) ---
         $action = strtolower((string)($_GET['action'] ?? $_POST['action'] ?? ''));
         if ($action === 'export') {
             $format = strtolower((string)($_GET['format'] ?? $_POST['format'] ?? 'json'));
             $limit  = (int)($_GET['limit'] ?? $_POST['limit'] ?? 0);
             $target = (int)($_GET['target'] ?? $_POST['target'] ?? 0);
 
-            $deviceId = $this->ResolveSingleDevice($target);
-            $this->Dbg('Export', 'target=' . $target . ' resolvedDevice=' . $deviceId . ' format=' . $format . ' limit=' . $limit);
-
-            if ($deviceId <= 0) {
+            $semKey = 'MRWASH_EXPORT_' . $this->InstanceID;
+            if (!IPS_SemaphoreEnter($semKey, 2000)) {
                 http_response_code(503);
-                echo 'No device connected (or multiple devices, set ?target=InstanceID)';
+                echo 'Export busy, try again';
                 return;
             }
 
-            $json = MRWASH_GetVisits($deviceId, $limit);
+            try {
+                $requestId = bin2hex(random_bytes(8));
+                $this->SetBuffer('ExportRequestId', $requestId);
+                $this->SetBuffer('ExportResponses', '[]');
 
-            if ($format === 'csv') {
-                $arr = json_decode($json, true);
-                if (!is_array($arr)) {
-                    $arr = [];
+                $req = [
+                    'cmd'       => 'export_request',
+                    'requestId' => $requestId,
+                    'preferred' => $target,
+                    'limit'     => $limit
+                ];
+
+                $this->Dbg('Export', 'RequestId=' . $requestId . ' preferred=' . $target . ' limit=' . $limit);
+
+                $this->SendDataToChildren(json_encode([
+                    'DataID' => self::IFACE_TO_SPLITTER,
+                    'Buffer' => json_encode($req, JSON_UNESCAPED_UNICODE)
+                ]));
+
+                // Warten auf Antworten (kurz, synchron)
+                $timeoutSec = 1.2;
+                $start = microtime(true);
+
+                $chosen = null;
+                $responses = [];
+
+                do {
+                    $responses = json_decode((string)$this->GetBuffer('ExportResponses'), true);
+                    if (!is_array($responses)) {
+                        $responses = [];
+                    }
+
+                    // bevorzugtes Ziel: nimm genau diese Antwort, sobald sie da ist
+                    if ($target > 0) {
+                        foreach ($responses as $r) {
+                            if ((int)($r['deviceId'] ?? 0) === $target) {
+                                $chosen = $r;
+                                break 2;
+                            }
+                        }
+                    } else {
+                        // kein target: wenn genau 1 Antwort da ist, warte noch kurz,
+                        // um "Mehrdeutig" erkennen zu können
+                        if (count($responses) >= 1 && (microtime(true) - $start) > 0.25) {
+                            break;
+                        }
+                    }
+
+                    usleep(50_000); // 50ms
+                } while ((microtime(true) - $start) < $timeoutSec);
+
+                // Auswahl ohne target
+                if ($chosen === null && $target === 0) {
+                    if (count($responses) === 1) {
+                        $chosen = $responses[0];
+                    }
                 }
-                header('Content-Type: text/csv; charset=utf-8');
-                header('Content-Disposition: attachment; filename="mrwash_visits.csv"');
-                $out = fopen('php://output', 'w');
-                fputcsv($out, ['exit', 'entry', 'duration_min', 'program', 'location', 'device', 'singleEvent']);
-                foreach ($arr as $v) {
-                    $exit = (int)($v['exit'] ?? 0);
-                    $entry = (int)($v['entry'] ?? 0);
-                    $duration = (int)($v['durationMin'] ?? 0);
-                    $program = (string)($v['program'] ?? '');
-                    $location = (string)($v['location'] ?? '');
-                    $dev = (string)($v['device'] ?? '');
-                    $single = (int)($v['singleEvent'] ?? 0);
-                    fputcsv($out, [$exit, $entry, $duration, $program, $location, $dev, $single]);
+
+                if (!is_array($chosen)) {
+                    http_response_code(503);
+                    if ($target > 0) {
+                        echo 'Target device not reachable via dataflow. Check connections.';
+                    } else {
+                        echo 'No device connected (or multiple devices, set ?target=InstanceID)';
+                    }
+                    return;
                 }
-                fclose($out);
+
+                $visits = $chosen['visits'] ?? [];
+                if (!is_array($visits)) {
+                    $visits = [];
+                }
+
+                if ($format === 'csv') {
+                    header('Content-Type: text/csv; charset=utf-8');
+                    header('Content-Disposition: attachment; filename="mrwash_visits.csv"');
+
+                    $out = fopen('php://output', 'w');
+                    fputcsv($out, ['exit', 'entry', 'duration_min', 'program', 'location', 'device', 'singleEvent']);
+
+                    foreach ($visits as $v) {
+                        if (!is_array($v)) {
+                            continue;
+                        }
+                        fputcsv($out, [
+                            (int)($v['exit'] ?? 0),
+                            (int)($v['entry'] ?? 0),
+                            (int)($v['durationMin'] ?? 0),
+                            $v['program'] ?? '',
+                            $v['location'] ?? '',
+                            $v['device'] ?? '',
+                            (int)($v['singleEvent'] ?? 0),
+                        ]);
+                    }
+                    fclose($out);
+                    return;
+                }
+
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode($visits, JSON_UNESCAPED_UNICODE);
                 return;
-            }
 
-            header('Content-Type: application/json; charset=utf-8');
-            echo $json;
-            return;
+            } finally {
+                IPS_SemaphoreLeave($semKey);
+            }
         }
 
         // --- Normal event ---
@@ -166,8 +249,6 @@ public function GetConfigurationForm(): string
         }
         $this->Dbg('Payload', json_encode($payload, JSON_UNESCAPED_UNICODE));
 
-        
-
         // Normalize timestamp: use payload['date'] if present (Geofency sends ISO 8601), fallback to server time only if missing/invalid.
         $ts = $this->ParseTimestamp($payload['date'] ?? ($payload['Date'] ?? null));
         if ($ts === null) {
@@ -177,7 +258,7 @@ public function GetConfigurationForm(): string
             $this->Dbg('Time', 'Using payload date -> ts=' . $ts . ' (' . date('c', $ts) . ')');
         }
         $payload['_timestamp'] = $ts;
-// Optional device filter
+        // Optional device filter
         $device = trim((string)($payload['device'] ?? ''));
         $allowed = trim((string)$this->ReadPropertyString('AllowedDevice'));
         if ($allowed !== '' && strcasecmp($allowed, $device) !== 0) {
@@ -261,13 +342,44 @@ public function GetConfigurationForm(): string
         return (count($devices) === 1) ? $devices[0] : 0;
     }
 
+    public function ForwardData($JSONString)
+    {
+        $data = json_decode($JSONString);
+        if (!is_object($data) || !property_exists($data, 'Buffer')) {
+            return '';
+        }
+
+        $buf = (string)$data->Buffer;
+        $msg = json_decode($buf, true);
+        if (!is_array($msg)) {
+            return '';
+        }
+
+        if (($msg['cmd'] ?? '') !== 'export_response') {
+            return '';
+        }
+
+        $reqId = (string)($msg['requestId'] ?? '');
+        if ($reqId === '' || $reqId !== (string)$this->GetBuffer('ExportRequestId')) {
+            return '';
+        }
+
+        $responses = json_decode((string)$this->GetBuffer('ExportResponses'), true);
+        if (!is_array($responses)) {
+            $responses = [];
+        }
+
+        $responses[] = $msg;
+        $this->SetBuffer('ExportResponses', json_encode($responses, JSON_UNESCAPED_UNICODE));
+
+        $this->Dbg('Export', 'Response received, total=' . count($responses));
+        return 'OK';
+    }
+
+
     private function IsDebugEnabled(): bool
     {
-        $cfg = json_decode((string)@IPS_GetConfiguration($this->InstanceID), true);
-        if (!is_array($cfg) || !array_key_exists('EnableDebug', $cfg)) {
-            return true; // default
-        }
-        return (bool)$cfg['EnableDebug'];
+        return $this->ReadPropertyBoolean('EnableDebug');
     }
 
     private function Dbg(string $topic, $data): void
